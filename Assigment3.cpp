@@ -6,8 +6,8 @@
 #include <algorithm>
 
 using namespace std;
-enum TOKEN {RIGHT_PAREN, OR, AND, NOT, LEFT_PAREN};
 
+enum TOKEN {RIGHT_PAREN, OR, AND, NOT, LEFT_PAREN};
 
 
 class Node {
@@ -26,6 +26,9 @@ public:
 
 
 Node* makeNode(string expr, int &num);
+void postOrder(Node* node, stack<int> &s);
+int booleanResult(int one, int two, int op);
+map<char, Node*> mapping;
 class BTree
 {
 public:
@@ -53,7 +56,9 @@ bool higherPrecedence(char first, char second)//function used to determine opera
     {
         return false;
     }
+    return true;
 }
+
 
 void preOrder(Node* node, int level)
 {
@@ -147,9 +152,10 @@ BTree::BTree(string expr)
 {
     root=NULL;
 	string prefix_string=toPrefix(expr);
-	cout<<prefix_string<<endl;
+	//cout<<prefix_string<<endl;
     int i=0;
     root=makeNode(prefix_string, i);
+    table=mapping;
 }
 
 void BTree::show()
@@ -164,17 +170,94 @@ Node* makeNode(string expr, int &num)
     if(temp->token=='&' || temp->token=='|')
     {
         temp->left=makeNode(expr, ++num);
-        temp->right=makeNode(expr, ++num);//make sure you set the parents 
+        temp->right=makeNode(expr, ++num);//make sure you set the parents
+        temp->right->parent=temp;
+        temp->left->parent=temp;
+
     }
     else if(temp->token=='~')
     {
         temp->left=makeNode(expr, ++num);
+        temp->left->parent=temp;
     }
+    else 
+    {
+        mapping[temp->token]=temp;
+    }
+    
     return temp;
 }
 
+void BTree::setVar(char var, bool val)
+{
+    table[var]->result=val;
+}
+
+bool BTree::evaluate(Node* p)
+{
+    stack<int> results;
+    postOrder(p, results);
+    p->result=results.top();
+
+    return root->result;
+}
+
+
+void postOrder(Node* node, stack<int> &s)
+{
+    if(node==NULL)
+        return;
+    postOrder(node->left, s);
+    postOrder(node->right, s);
+    if(node->token=='&' ||node->token=='|')
+    {
+        int op, result;
+        int first=s.top();
+        s.pop();
+        int second=s.top();
+        s.pop();
+        if(node->token=='&')
+            op=AND;
+        else
+            op=OR;
+        result=booleanResult(first, second, op);
+        s.push(result);
+    }
+    else if(node->token=='~')
+    {
+        int temp=s.top();
+        s.pop();
+        if(temp==1)
+            temp=0;
+        else
+            temp=1;
+
+        s.push(temp);
+    }
+    else
+    {
+        s.push(node->result);
+    }
+    
+}
+
+int booleanResult(int one, int two, int op)
+{
+    if(one==1 && two==1 && op==AND)
+        return 1;
+    if((one==1 || two==1) && op==OR)
+        return 1;
+
+    return 0;
+}
 int main()
 {
 	BTree etree = BTree("~a&((~b)|(~c)&d)");
-    etree.show();
+etree.setVar('a', true);
+etree.setVar('b', false);
+etree.setVar('c', false);
+etree.setVar('d', true);
+etree.evaluate(etree.root);
+etree.show();
+cout << "The evaluated result = " << etree.root->result << endl;
 }
